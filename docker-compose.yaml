@@ -2,7 +2,11 @@ version: "3.8"
 
 services:
   gmod-ssh-sidecar:
-    build: .
+    build:
+      context: .
+      args:
+        USER_UID: ${DEV_UID:?Set DEV_UID (e.g. 988)}
+        USER_GID: ${DEV_GID:?Set DEV_GID (e.g. 988)}
     container_name: gmod-ssh-sidecar
     restart: unless-stopped
 
