@@ -1,15 +1,28 @@
 version: "3.8"
+
 services:
   gmod-ssh-sidecar:
     build: .
     container_name: gmod-ssh-sidecar
+    restart: unless-stopped
+
     environment:
-      SSH_PUBKEY: ${SSH_PUBKEY}
-      PTERO_UUID: ${PTERO_UUID}
+      # Set these in Coolify UI → Environment
+      SSH_PUBKEYS: ${SSH_PUBKEYS:?Set SSH_PUBKEYS (one or more pubkeys, newline or comma separated)}
+      PTERO_UUID:  ${PTERO_UUID:?Set PTERO_UUID}
+      HOSTKEY_DIR: /etc/ssh/hostkeys
+
     volumes:
       - type: bind
-        source: ${PTERO_BASE_PATH:-/var/lib/pterodactyl/volumes}/${PTERO_UUID}
+        source: ${PTERO_BASE_PATH:-/var/lib/pterodactyl/volumes}/${PTERO_UUID:?Set PTERO_UUID}
         target: /workspace/server
+      - type: volume
+        source: ssh-hostkeys
+        target: /etc/ssh/hostkeys
+
+    # Since you can't add a TCP public port in the UI, expose it here:
     ports:
-      - "2222:22"   # change if needed
-    restart: unless-stopped
+      - "2222:22"
+
+volumes:
+  ssh-hostkeys: {}
