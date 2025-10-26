@@ -2,33 +2,56 @@
 set -euo pipefail
 
 : "${USERNAME:=dev}"
-: "${SSH_PUBKEY:=}"
+: "${SSH_PUBKEYS:=}"        # multiple keys supported (comma- or newline-separated)
+: "${SSH_PUBKEY:=}"         # backward-compat: single key
 : "${PTERO_UUID:=}"
+: "${HOSTKEY_DIR:=/etc/ssh/hostkeys}"   # MUST match sshd_config HostKey paths in Dockerfile
 
-if [[ -z "${SSH_PUBKEY}" ]]; then
-  echo "ERROR: SSH_PUBKEY env var is empty. Provide your public key." >&2
+# Merge legacy SSH_PUBKEY into SSH_PUBKEYS if provided
+if [[ -n "${SSH_PUBKEY}" ]]; then
+  if [[ -z "${SSH_PUBKEYS}" ]]; then
+    SSH_PUBKEYS="${SSH_PUBKEY}"
+  else
+    SSH_PUBKEYS="${SSH_PUBKEYS}"$'\n'"${SSH_PUBKEY}"
+  fi
+fi
+
+if [[ -z "${SSH_PUBKEYS}" ]]; then
+  echo "ERROR: SSH_PUBKEYS env var is empty. Provide one or more public keys." >&2
   exit 1
 fi
 
-# Write authorized_keys
+# Normalize multi-key input:
+# - remove CR (Windows)
+# - allow comma *or* newline as separator
+# - drop empty lines
+CLEAN_KEYS="$(echo "${SSH_PUBKEYS}" | tr -d '\r' | tr ',' '\n' | sed '/^[[:space:]]*$/d')"
+
+# Ensure persistent hostkey dir and host keys (persist across rebuilds/redeploys)
+install -d -m 0700 -o root -g root "${HOSTKEY_DIR}"
+if [[ ! -f "${HOSTKEY_DIR}/ssh_host_ed25519_key" ]]; then
+  ssh-keygen -t ed25519 -f "${HOSTKEY_DIR}/ssh_host_ed25519_key" -N '' -q
+fi
+if [[ ! -f "${HOSTKEY_DIR}/ssh_host_rsa_key" ]]; then
+  ssh-keygen -t rsa -b 4096 -f "${HOSTKEY_DIR}/ssh_host_rsa_key" -N '' -q
+fi
+chmod 600 "${HOSTKEY_DIR}"/ssh_host_*_key || true
+chmod 644 "${HOSTKEY_DIR}"/ssh_host_*_key.pub || true
+
+# Write user authorized_keys (default OpenSSH location)
 install -d -m 0700 -o "${USERNAME}" -g "${USERNAME}" "/home/${USERNAME}/.ssh"
-echo "${SSH_PUBKEY}" > "/home/${USERNAME}/.ssh/authorized_keys"
+printf '%s\n' "${CLEAN_KEYS}" > "/home/${USERNAME}/.ssh/authorized_keys"
 chmod 600 "/home/${USERNAME}/.ssh/authorized_keys"
 chown -R "${USERNAME}:${USERNAME}" "/home/${USERNAME}/.ssh"
 
-# Also place in global path per sshd_config
-install -d -m 0755 /etc/ssh/authorized_keys
-echo "${SSH_PUBKEY}" > "/etc/ssh/authorized_keys/${USERNAME}"
-chmod 600 "/etc/ssh/authorized_keys/${USERNAME}"
+# Friendly MOTD
+{
+  echo "Pterodactyl UUID: ${PTERO_UUID}"
+  echo "Editing path: /workspace/server"
+} > /etc/motd || true
 
-# Ensure workspace exists (mounted by compose)
-if [[ ! -d /workspace/server ]]; then
-  echo "WARNING: /workspace/server not found. Did you mount the Pterodactyl path?"
-fi
+# Warn if mount is missing
+[[ -d /workspace/server ]] || echo "WARNING: /workspace/server not found. Did you mount the Pterodactyl path?"
 
-# Simple banner with UUID for sanity
-echo "Pterodactyl UUID: ${PTERO_UUID}" > /etc/motd
-echo "Editing path: /workspace/server" >> /etc/motd
-
-# Start SSHD in foreground
+# Run sshd in foreground
 exec /usr/sbin/sshd -D -e
