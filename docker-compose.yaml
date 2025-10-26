@@ -6,6 +6,10 @@ services:
     environment:
       SSH_PUBKEY: ${SSH_PUBKEY}
       PTERO_UUID: ${PTERO_UUID}
+    volumes:
+      - type: bind
+        source: ${PTERO_BASE_PATH:-/var/lib/pterodactyl/volumes}/${PTERO_UUID}
+        target: /workspace/server
     ports:
       - "2222:22"   # change if needed
     restart: unless-stopped
