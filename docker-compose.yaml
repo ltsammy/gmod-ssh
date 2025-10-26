@@ -8,16 +8,4 @@ services:
       PTERO_UUID: ${PTERO_UUID}
     ports:
       - "2222:22"   # change if needed
-    # Choose ONE volume mapping that matches your host setup ↓↓↓
-    volumes:
-      # (A) Host path install (most common for Pterodactyl with bind mounts):
-      # Replace /var/lib/pterodactyl/volumes with your real base dir
-      - ${PTERO_BASE_PATH:-/var/lib/pterodactyl/volumes}/${PTERO_UUID}:/workspace/server:rw
-
-      # (B) Docker-managed volume install (less common):
-      # 1) Find the volume: docker volume ls | grep ${PTERO_UUID}
-      # 2) Inspect to confirm name, e.g. pterodactyl_data_${PTERO_UUID}
-      # 3) Then mount its _data path from the host:
-      # - /var/lib/docker/volumes/pterodactyl_data_${PTERO_UUID}/_data:/workspace/server:rw
-
     restart: unless-stopped
