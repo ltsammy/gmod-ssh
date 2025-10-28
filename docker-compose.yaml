@@ -26,7 +26,7 @@ services:
 
     # Since you can't add a TCP public port in the UI, expose it here:
     ports:
-      - ${SSH_PORT:-2222}:22"
+      - ${SSH_PORT:-2222}:22
 
 volumes:
   ssh-hostkeys: {}
