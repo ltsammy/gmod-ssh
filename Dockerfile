@@ -3,8 +3,8 @@ FROM debian:stable-slim
 ARG DEBIAN_FRONTEND=noninteractive
 
 # >>> Neu: Build-Args für UID/GID (standard 1000, per compose überschreibbar)
-ARG USER_UID=1000
-ARG USER_GID=1000
+ARG USER_UID=988
+ARG USER_GID=988
 # <<<
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
